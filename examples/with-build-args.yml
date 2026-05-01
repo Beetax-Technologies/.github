@@ -1,0 +1,23 @@
+# Exemplo: passar build args pro Dockerfile (ex: NODE_VERSION, COMMIT_SHA).
+#
+# COPIA pra .github/workflows/publish.yml no SEU repo.
+
+name: Publish
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: Beetax-Technologies/.github/.github/workflows/publish-docker.yml@v1
+    with:
+      service-name: MINHA-APP
+      build-args: |
+        NODE_VERSION=22
+        COMMIT_SHA=${{ github.sha }}
+        BUILT_AT=${{ github.run_id }}
+    permissions:
+      contents: read
+      packages: write

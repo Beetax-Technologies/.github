@@ -1,0 +1,20 @@
+# Exemplo: 1 serviço, Dockerfile na raiz do repo.
+#
+# COPIA este arquivo pra .github/workflows/publish.yml no SEU repo.
+# Substitui MINHA-APP pelo nome real.
+
+name: Publish
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: Beetax-Technologies/.github/.github/workflows/publish-docker.yml@v1
+    with:
+      service-name: MINHA-APP
+    permissions:
+      contents: read
+      packages: write

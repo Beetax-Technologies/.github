@@ -1,0 +1,139 @@
+name: Publish Docker (reusable)
+
+# Reusable workflow para build + push de imagens Docker pra GHCR
+# usando o runner self-hosted BeeHive (CX23 amd64) com QEMU pra arm64.
+#
+# Consumers chamam via:
+#   uses: Beetax-Technologies/.github/.github/workflows/publish-docker.yml@v1
+#
+# Ver README.md na raiz do repo pra exemplos completos.
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: 'Nome da imagem em GHCR (vira ghcr.io/<owner>/<service-name>)'
+        required: true
+        type: string
+      context:
+        description: 'Diretório de build (relativo à raiz do repo). Default: "."'
+        required: false
+        type: string
+        default: '.'
+      dockerfile:
+        description: 'Path do Dockerfile (relativo à raiz do repo). Default: "Dockerfile"'
+        required: false
+        type: string
+        default: 'Dockerfile'
+      platforms:
+        description: 'Plataformas separadas por vírgula. Default: linux/amd64,linux/arm64'
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
+      registry-owner:
+        description: 'Owner do GHCR. Default: beetax-technologies'
+        required: false
+        type: string
+        default: 'beetax-technologies'
+      version:
+        description: 'Versão override. Default: extraída do git tag (v1.2.3 → 1.2.3, foo-v1.2.3 → 1.2.3)'
+        required: false
+        type: string
+        default: ''
+      push-latest:
+        description: 'Publica também a tag :latest. Default: true'
+        required: false
+        type: boolean
+        default: true
+      build-args:
+        description: 'Build args multilinha (formato KEY=VALUE por linha). Opcional.'
+        required: false
+        type: string
+        default: ''
+
+    outputs:
+      image:
+        description: 'Imagem completa publicada (ghcr.io/<owner>/<service-name>:<version>)'
+        value: ${{ jobs.publish.outputs.image }}
+      version:
+        description: 'Versão calculada/usada'
+        value: ${{ jobs.publish.outputs.version }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: ${{ inputs.service-name }}
+    runs-on: [self-hosted, beehive]
+    outputs:
+      image: ${{ steps.tags.outputs.primary }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute version tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            REF="${GITHUB_REF_NAME}"
+            # Aceita tags do tipo:
+            #   v1.2.3          → 1.2.3
+            #   <service>-v1.2.3 → 1.2.3 (monorepo per-service tag)
+            #   1.2.3            → 1.2.3 (sem prefix)
+            VERSION="${REF#${{ inputs.service-name }}-v}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="sha-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publicando ${{ inputs.service-name }}:${VERSION} (ref=${GITHUB_REF_NAME})"
+
+      - name: Build tag list
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="ghcr.io/${{ inputs.registry-owner }}/${{ inputs.service-name }}"
+          PRIMARY="${BASE}:${{ steps.meta.outputs.version }}"
+          TAGS="${PRIMARY}"
+          if [ "${{ inputs.push-latest }}" = "true" ]; then
+            TAGS="${TAGS},${BASE}:latest"
+          fi
+          {
+            echo "primary=${PRIMARY}"
+            echo "list<<EOF"
+            echo "${TAGS}" | tr ',' '\n'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup QEMU (cross-build arm64)
+        if: contains(inputs.platforms, 'arm64') || contains(inputs.platforms, 'arm/v7')
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          platforms: ${{ inputs.platforms }}
+          build-args: ${{ inputs.build-args }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

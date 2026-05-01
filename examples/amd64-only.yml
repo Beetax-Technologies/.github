@@ -1,0 +1,21 @@
+# Exemplo: app que SÓ roda em amd64 (ex: usa libs C nativas sem ARM).
+# Pula QEMU, build mais rápido.
+#
+# COPIA pra .github/workflows/publish.yml no SEU repo.
+
+name: Publish
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: Beetax-Technologies/.github/.github/workflows/publish-docker.yml@v1
+    with:
+      service-name: MINHA-APP-AMD64
+      platforms: linux/amd64
+    permissions:
+      contents: read
+      packages: write
