@@ -105,6 +105,37 @@ Tag `v3.0.0` -> publica os dois.
 | `image` | Imagem completa publicada (`ghcr.io/<owner>/<service-name>:<version>`) |
 | `version` | Versão calculada/usada |
 
+#### ⚠️ GOTCHA crítico: prefix `v` é stripado da tag GHCR
+
+A computação de versão **remove o prefix `v`** automaticamente. Tags GHCR ficam **sem `v`**:
+
+| Git tag | GHCR image tag publicada |
+|---|---|
+| `v1.2.3` | `1.2.3` (sem `v`) |
+| `<service>-v1.2.3` | `1.2.3` (sem prefix nem `v`) |
+| `1.2.3` (sem `v` no git já) | `1.2.3` |
+
+**Quando você for pinar tag no Coolify ou pull manual, use SEM `v`:**
+
+```bash
+# ❌ ERRADO — não existe no GHCR
+docker pull ghcr.io/org/service:v1.2.3
+
+# ✅ CERTO
+docker pull ghcr.io/org/service:1.2.3
+```
+
+```json
+// Coolify PATCH /applications/{uuid}
+// ❌ ERRADO
+{"docker_registry_image_tag": "v1.2.3"}
+
+// ✅ CERTO
+{"docker_registry_image_tag": "1.2.3"}
+```
+
+> Esse comportamento foi descoberto em prod (2026-05-03) durante migração context-engine. App ficou em crashloop "image not found" porque Coolify estava pinada com `v` mas tag GHCR não tem `v`. Documentado aqui pra evitar repeated falha.
+
 #### Versionamento do template
 
 - `@v1` -> última v1.x.x compatível (recomendado)

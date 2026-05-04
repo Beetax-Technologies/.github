@@ -78,21 +78,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # ⚠️ IMPORTANTE: prefix `v` SEMPRE é stripado da versão final.
+          # Git tag `v1.2.3` → GHCR tag `1.2.3` (SEM v).
+          # Pra pull/pin: use `1.2.3`, NÃO `v1.2.3`.
+          # Documentado em README.md (gotcha crítico).
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
           elif [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
             REF="${GITHUB_REF_NAME}"
             # Aceita tags do tipo:
-            #   v1.2.3          → 1.2.3
-            #   <service>-v1.2.3 → 1.2.3 (monorepo per-service tag)
-            #   1.2.3            → 1.2.3 (sem prefix)
+            #   v1.2.3            → 1.2.3
+            #   <service>-v1.2.3  → 1.2.3 (monorepo per-service tag)
+            #   1.2.3             → 1.2.3 (sem prefix)
             VERSION="${REF#${{ inputs.service-name }}-v}"
             VERSION="${VERSION#v}"
           else
             VERSION="sha-$(git rev-parse --short HEAD)"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "::notice::Publicando ${{ inputs.service-name }}:${VERSION} (ref=${GITHUB_REF_NAME})"
+          echo "::notice::Publicando ${{ inputs.service-name }}:${VERSION} (ref=${GITHUB_REF_NAME}). NOTA: tag GHCR sem prefix 'v' — pra pull use ${{ inputs.service-name }}:${VERSION}, NÃO :v${VERSION}."
 
       - name: Build tag list
         id: tags
