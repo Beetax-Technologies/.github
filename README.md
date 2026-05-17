@@ -1,18 +1,18 @@
-# Beetax-Technologies/.github
+# .github
 
-Defaults org-wide pra repos da Beetax Technologies: **reusable workflows** + community health files.
+Org-wide GitHub defaults: **reusable workflows** + community health files. Apache 2.0.
 
-Apache 2.0. Pode usar fora da org tb (mas o runner self-hosted é nosso).
+External orgs can use these workflows too (the runner labels are org-specific — adjust to your own infrastructure).
 
 ---
 
-## Reusable workflows disponíveis
+## Available reusable workflows
 
 ### `publish-docker.yml`
 
-Build + push de imagem Docker pra GHCR usando o runner self-hosted BeeHive (CX23 amd64) com QEMU pra cross-build arm64. Multi-arch por default (`linux/amd64,linux/arm64`).
+Build and push a Docker image to GHCR using a self-hosted runner with QEMU for cross-build arm64. Multi-arch by default (`linux/amd64,linux/arm64`).
 
-**Por que existe:** padroniza o pipeline `tag → CI → GHCR → Coolify` que a gente quer pra toda app interna. Sem isso, cada repo novo recopia 80 linhas de YAML hardcoded.
+**Why:** standardizes the `tag → CI → GHCR → container orchestrator` pipeline for internal apps. Without this each new repo would reimplement ~80 lines of hardcoded YAML.
 
 #### Uso mínimo (1 serviço, Dockerfile na raiz)
 
@@ -115,26 +115,26 @@ A computação de versão **remove o prefix `v`** automaticamente. Tags GHCR fic
 | `<service>-v1.2.3` | `1.2.3` (sem prefix nem `v`) |
 | `1.2.3` (sem `v` no git já) | `1.2.3` |
 
-**Quando você for pinar tag no Coolify ou pull manual, use SEM `v`:**
+**When you pin tags in any orchestrator or run a manual pull, use WITHOUT `v`:**
 
 ```bash
-# ❌ ERRADO — não existe no GHCR
+# ❌ WRONG — doesn't exist on GHCR
 docker pull ghcr.io/org/service:v1.2.3
 
-# ✅ CERTO
+# ✅ RIGHT
 docker pull ghcr.io/org/service:1.2.3
 ```
 
 ```json
-// Coolify PATCH /applications/{uuid}
-// ❌ ERRADO
-{"docker_registry_image_tag": "v1.2.3"}
+// Orchestrator config — image tag field
+// ❌ WRONG
+{"image_tag": "v1.2.3"}
 
-// ✅ CERTO
-{"docker_registry_image_tag": "1.2.3"}
+// ✅ RIGHT
+{"image_tag": "1.2.3"}
 ```
 
-> Esse comportamento foi descoberto em prod (2026-05-03) durante migração context-engine. App ficou em crashloop "image not found" porque Coolify estava pinada com `v` mas tag GHCR não tem `v`. Documentado aqui pra evitar repeated falha.
+> This behaviour was confirmed in production. Apps pinned with the `v` prefix end up in "image not found" loops because the published tag has no `v`. Documented here to prevent regression.
 
 #### Versionamento do template
 
@@ -146,30 +146,29 @@ Breaking changes só em major bump (v2). Qualquer mudança v1 -> v2 vai document
 
 ---
 
-## Pré-requisitos
+## Prerequisites
 
-1. **Runner self-hosted BeeHive online** (`[self-hosted, beehive]`). Hoje só temos o CX23 amd64. Se cair, workflows ficam em queue.
-2. **Acesso ao GHCR** da org `beetax-technologies`. O `secrets.GITHUB_TOKEN` automático cobre repos da org.
-3. **Permissions no caller** explícitas:
+1. **Self-hosted runner online** with matching labels. If unavailable, jobs stay queued.
+2. **GHCR access**. The automatic `secrets.GITHUB_TOKEN` covers same-org repos.
+3. **Explicit permissions in the caller workflow:**
    ```yaml
    permissions:
      contents: read
      packages: write
    ```
-   (reusable workflow não herda automaticamente.)
+   (reusable workflows don't inherit by default.)
 
-## Trade-offs conhecidos
+## Known trade-offs
 
-- **arm64 via QEMU é lento** (~3-5x build nativo). Se a frequência de tag for alta, considera split: 1 job amd64 nativo + 1 job ARM nativo + manifest. Por ora aceitável.
-- **Single runner = SPOF.** Se o CX23 cair, todos os builds param. Backlog item B-020 (revivar runner ARM nativo) defere isso.
-- **Sem cleanup pre-checkout.** Se um build deixar lixo no workspace, próximo run pode falhar. Composite action [`Beetax-Technologies/dind-runner-cleanup@v1`](https://github.com/Beetax-Technologies/dind-runner-cleanup) cobre isso quando o caller quer adicionar.
+- **arm64 via QEMU is slow** (~3-5x native build). For high-frequency tags, consider splitting jobs: one amd64 native + one ARM native + manifest. For low frequency it's acceptable.
+- **Sem cleanup pre-checkout.** If a build leaves leftover files in the workspace, the next run can fail. Composite action [`Beetax-Technologies/dind-runner-cleanup@v1`](https://github.com/Beetax-Technologies/dind-runner-cleanup) covers this when the caller opts in.
 
 ## Roadmap
 
-- [ ] `publish-npm.yml` reusable (Verdaccio + npm.beetax.tech)
-- [ ] `deploy-coolify.yml` reusable (chama BeeHive MCP pra deploy automático após publish)
+- [ ] `publish-npm.yml` reusable (private registry support)
+- [ ] `deploy.yml` reusable (post-publish hook for orchestrator)
 - [ ] `test-node.yml` reusable (Node.js + cache + lint + test pattern)
-- [ ] Auto-update via Renovate bot pra @vX -> @vX.Y.Z
+- [ ] Auto-update via Renovate bot for `@vX -> @vX.Y.Z`
 
 ## Licença
 
