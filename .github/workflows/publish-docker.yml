@@ -1,7 +1,7 @@
 name: Publish Docker (reusable)
 
 # Reusable workflow para build + push de imagens Docker pra GHCR
-# usando o runner self-hosted BeeHive (CX23 amd64) com QEMU pra arm64.
+# usando o runner self-hosted linux amd64 com QEMU pra arm64.
 #
 # Consumers chamam via:
 #   uses: Beetax-Technologies/.github/.github/workflows/publish-docker.yml@v1
