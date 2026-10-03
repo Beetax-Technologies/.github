@@ -149,6 +149,7 @@ Breaking changes só em major bump (v2). Qualquer mudança v1 -> v2 vai document
 ## Prerequisites
 
 1. **Self-hosted runner online** with matching labels. If unavailable, jobs stay queued.
+   As actions usadas (desde v1.1.0) rodam em Node 24: o runner precisa ser v2.327.1 ou mais novo.
 2. **GHCR access**. The automatic `secrets.GITHUB_TOKEN` covers same-org repos.
 3. **Explicit permissions in the caller workflow:**
    ```yaml
